@@ -13,9 +13,10 @@ num_of_epochs = 10
 device = 'cuda'
 train_log = './monkey_lenet_logs/train_log.csv'
 test_log = './monkey_lenet_logs/test_log.csv'
+
+
 training_data_path = '/scratch1/Daniel/babadiProj2/training'
 testing_data_path = '/scratch1/Daniel/babadiProj2/validation'
-
 
 #for resizing images and such
 transform = transforms.Compose(
@@ -23,16 +24,16 @@ transform = transforms.Compose(
                  transforms.Resize((28,28), interpolation=2),
                  transforms.ToTensor()])
 
+#datasets
+train_dataset = MonkeyDataset(training_data_path, transform=transform)
+test_dataset = MonkeyDataset(testing_data_path, transform=transform)
+
 #data loaders
-train_loader = torch.utils.data.DataLoader(
-    MonkeyDataset(training_data_path,
-            transform=transform),
-            batch_size=train_batch_size, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train_dataset,
+            batch_size=train_batch_size, shuffle=True, num_workers=4)
         
-test_loader = torch.utils.data.DataLoader(
-    MonkeyDataset(testing_data_path, 
-            transform=transform),
-            batch_size=test_batch_size, shuffle=False)
+test_loader = torch.utils.data.DataLoader(test_dataset,
+            batch_size=test_batch_size, shuffle=False, num_workers=4)
             
 #network
 class LeNet(nn.Module):
@@ -57,7 +58,41 @@ class LeNet(nn.Module):
         return x
         
         
+#train or evaluation the network for an epoch
+def run_net(model, mode, epoch, data_loader, csv_writer, optimizer=None)	
+    if mode == 'train':
+    	model.train()
+    	if optimizer == None
+    	    raise Exception('must provide an optimizer in train mode')
+    elif mode == 'test':
+        print('in test mode')
+        model.eval()
+    else:
+        raise Exception('mode must be test or train')
         
+    total_correct = 0
+    for batch_idx, (image, label) in enumerate(data_loader):
+        image, label = image.to(device), label.to(device)
+        optimizer.zero_grad()
+        output = model(image)
+        loss = F.cross_entropy(output,label)
+        unused, predicted = output.max(1)
+        correct_batch = predicted.eq(label.view_as(predicted)).sum().item()
+        total_correct += correct_batch
+        accuracy = correct_batch/image.size(0)
+        if mode == 'train'
+            loss.backward()
+            optimizer.step()
+        
+        if batch_idx % 2 == 0:
+            print('Mode %s \t Epoch: %d \t Iter: %d \t Loss: \t %f \t Accuracy %f' %
+             (mode, epoch, batch_idx, loss.item(), accuracy))
+             
+        csv_writer.writerow({'epoch': epoch, 'batch': batch_idx,
+               'loss': loss.item(),'accuracy': accuracy})
+     print('end of epoch %d/%d correct' % (total_correct,len(data_loader.dataset)))
+         
+         
 #setup csv files for logging
 train_csv = open(train_log,'w')
 fieldnames = ['epoch','batch','loss','accuracy']
@@ -70,51 +105,16 @@ test_writer.writeheader()
 
 #setup model and optimizer
 model = LeNet().to(device)
-optimizer = optim.Adam(model.parameters())
-
-for epoch in range(0, num_of_epochs):  	
-    #train an epoch
-    model.train()
-    correct = 0
-    for batch_idx, (image, label) in enumerate(train_loader):
-        image, label = image.to(device), label.to(device)
-        optimizer.zero_grad()
-        output = model(image)
-        loss = F.cross_entropy(output,label)
-        unused, predicted = output.max(1)
-        correct_batch = predicted.eq(label.view_as(predicted)).sum().item()
-        correct += correct_batch
-        loss.backward()
-        optimizer.step()
-        
-        if batch_idx % 2 == 0:
-            print('Train epoch: %d \t Iter: %d \t Loss: \t %f' %
-             (epoch, batch_idx, loss.item()))
-             
-        train_writer.writerow({'epoch': epoch, 'batch': batch_idx,
-               'loss': loss.item(),'accuracy': correct_batch/train_batch_size})
-
-    #test an epoch
-    model.eval()
-    correct = 0
-    with torch.no_grad():
-        for batch_idx, (image, label) in enumerate(test_loader):
-            image, label = image.to(device), label.to(device)
-            output = model(image)
-            loss = F.cross_entropy(output,label)
-            unused, predicted = output.max(1)
-            correct_batch = predicted.eq(label.view_as(predicted)).sum().item()
-            correct += correct_batch
-            
-            print('Test epoch: %d \t Iter: %d \t Loss: %f \t Correct: %d/%d' %
-               (epoch, batch_idx, loss, correct_batch, test_batch_size))
-               
-            test_writer.writerow({'epoch': epoch, 'batch': batch_idx,
-               'loss': loss.item(), 'accuracy': correct_batch/test_batch_size})
-               
-        print('Test epoch: %d \t Num correct: %d / %d' % 
-         (epoch, correct, test_batch_size*len(test_loader)))
+optimizer = optim.Adam(model.parameters())        
          
+for epoch in range(0,num_of_epochs):
+     run_net(model,'train',epoch,train_loader,train_writer,optimizer=optimizer)
+     run_net(model,'test',epoch,test_loader,test_writer)
+         
+         
+train_csv.close()
+test_csv.close()
+
 #torch.save({'state_dict': model.state_dict()},'./lenet.pth')
-        
+
         

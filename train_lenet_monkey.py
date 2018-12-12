@@ -10,9 +10,12 @@ from monkey_dataset import MonkeyDataset
 train_batch_size = 50
 test_batch_size = 100
 num_of_epochs = 10 
-device = 'cpu'
+device = 'cuda'
 train_log = './monkey_lenet_logs/train_log.csv'
 test_log = './monkey_lenet_logs/test_log.csv'
+training_data_path = '/scratch1/Daniel/babadiProj2/training'
+testing_data_path = '/scratch1/Daniel/babadiProj2/validation'
+
 
 #for resizing images and such
 transform = transforms.Compose(
@@ -22,12 +25,12 @@ transform = transforms.Compose(
 
 #data loaders
 train_loader = torch.utils.data.DataLoader(
-    MonkeyDataset('./10-monkey-species/training',
+    MonkeyDataset(training_data_path,
             transform=transform),
             batch_size=train_batch_size, shuffle=True)
         
 test_loader = torch.utils.data.DataLoader(
-    MonkeyDataset('./10-monkey-species/validation', 
+    MonkeyDataset(testing_data_path, 
             transform=transform),
             batch_size=test_batch_size, shuffle=False)
             
@@ -35,7 +38,7 @@ test_loader = torch.utils.data.DataLoader(
 class LeNet(nn.Module):
     def __init__(self):
         super(LeNet, self).__init__()
-        self.features = nn.Sequential( nn.Conv2d(1, 6, kernel_size=3),
+        self.features = nn.Sequential( nn.Conv2d(3, 6, kernel_size=3),
                                   nn.ReLU(True),
                                   nn.MaxPool2d(2),
                                   nn.Conv2d(6, 16, kernel_size=3),
@@ -57,7 +60,7 @@ class LeNet(nn.Module):
         
 #setup csv files for logging
 train_csv = open(train_log,'w')
-fieldnames = ['epoch','batch','loss']
+fieldnames = ['epoch','batch','loss','accuracy']
 train_writer = csv.DictWriter(train_csv,fieldnames = fieldnames)
 train_writer.writeheader()
 
@@ -69,9 +72,10 @@ test_writer.writeheader()
 model = LeNet().to(device)
 optimizer = optim.Adam(model.parameters())
 
-for epoch in range(1, num_of_epochs):  	
+for epoch in range(0, num_of_epochs):  	
     #train an epoch
     model.train()
+    correct = 0
     for batch_idx, (image, label) in enumerate(train_loader):
         image, label = image.to(device), label.to(device)
         optimizer.zero_grad()
@@ -83,12 +87,12 @@ for epoch in range(1, num_of_epochs):
         loss.backward()
         optimizer.step()
         
-        if batch_idx % 100 == 0:
+        if batch_idx % 2 == 0:
             print('Train epoch: %d \t Iter: %d \t Loss: \t %f' %
              (epoch, batch_idx, loss.item()))
              
         train_writer.writerow({'epoch': epoch, 'batch': batch_idx,
-               'loss': loss.item(),'accuracy': correct_batch.item()/train_batch_size})
+               'loss': loss.item(),'accuracy': correct_batch/train_batch_size})
 
     #test an epoch
     model.eval()
@@ -103,13 +107,13 @@ for epoch in range(1, num_of_epochs):
             correct += correct_batch
             
             print('Test epoch: %d \t Iter: %d \t Loss: %f \t Correct: %d/%d' %
-               (epoch, batch_idx, loss, correct, test_batch_size))
+               (epoch, batch_idx, loss, correct_batch, test_batch_size))
                
             test_writer.writerow({'epoch': epoch, 'batch': batch_idx,
-               'loss': loss.item(), 'accuracy': correct_batch.item()/test_batch_size})
+               'loss': loss.item(), 'accuracy': correct_batch/test_batch_size})
                
         print('Test epoch: %d \t Num correct: %d / %d' % 
-         (epoch, correct, len(test_loader)))
+         (epoch, correct, test_batch_size*len(test_loader)))
          
 #torch.save({'state_dict': model.state_dict()},'./lenet.pth')
         

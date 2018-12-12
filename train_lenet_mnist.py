@@ -9,7 +9,7 @@ import csv
 train_batch_size = 50
 test_batch_size = 100
 num_of_epochs = 10 
-device = 'cpu'
+device = 'cuda'
 
 train_log = './mnist_lenet_logs/train_log.csv'
 test_log = './mnist_lenet_logs/test_log.csv'
@@ -54,7 +54,7 @@ optimizer = optim.Adam(model.parameters())
 
 #setup csv files for logging
 train_csv = open(train_log,'w')
-fieldnames = ['epoch','batch','loss']
+fieldnames = ['epoch','batch','loss','accuracy']
 train_writer = csv.DictWriter(train_csv,fieldnames = fieldnames)
 train_writer.writeheader()
 
@@ -66,9 +66,10 @@ test_writer.writeheader()
 model = LeNet().to(device)
 optimizer = optim.Adam(model.parameters())
 
-for epoch in range(1, num_of_epochs):  	
+for epoch in range(0, num_of_epochs):  	
     #train an epoch
     model.train()
+    correct = 0
     for batch_idx, (image, label) in enumerate(train_loader):
         image, label = image.to(device), label.to(device)
         optimizer.zero_grad()
@@ -80,12 +81,11 @@ for epoch in range(1, num_of_epochs):
         loss.backward()
         optimizer.step()
         
-        if batch_idx % 100 == 0:
+        if batch_idx % 10 == 0:
             print('Train epoch: %d \t Iter: %d \t Loss: \t %f' %
-             (epoch, batch_idx, loss.item()))
-             
+             (epoch, batch_idx, loss.item()))     
         train_writer.writerow({'epoch': epoch, 'batch': batch_idx,
-               'loss': loss.item(),'accuracy': correct_batch.item()/train_batch_size})
+               'loss': loss.item(),'accuracy': correct_batch/train_batch_size})
 
     #test an epoch
     model.eval()
@@ -100,13 +100,13 @@ for epoch in range(1, num_of_epochs):
             correct += correct_batch
             
             print('Test epoch: %d \t Iter: %d \t Loss: %f \t Correct: %d/%d' %
-               (epoch, batch_idx, loss, correct, test_batch_size))
+               (epoch, batch_idx, loss, correct_batch, test_batch_size))
                
             test_writer.writerow({'epoch': epoch, 'batch': batch_idx,
-               'loss': loss.item(), 'accuracy': correct_batch.item()/test_batch_size})
+               'loss': loss.item(), 'accuracy': correct_batch/test_batch_size})
                
         print('Test epoch: %d \t Num correct: %d / %d' % 
-         (epoch, correct, len(test_loader)))
+         (epoch, correct, test_batch_size*len(test_loader)))
          
 #torch.save({'state_dict': model.state_dict()},'./lenet.pth')
         

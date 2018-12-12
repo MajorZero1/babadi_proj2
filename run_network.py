@@ -1,8 +1,10 @@
+import torch.nn.functional as F
+
 #train or evaluation the network for an epoch
-def run_net(model, mode, epoch, data_loader, csv_writer, optimizer=None)	
+def run_net(model, mode, epoch, data_loader, csv_writer, device, optimizer=None):	
     if mode == 'train':
     	model.train()
-    	if optimizer == None
+    	if optimizer == None:
     	    raise Exception('must provide an optimizer in train mode')
     elif mode == 'test':
         print('in test mode')
@@ -31,5 +33,5 @@ def run_net(model, mode, epoch, data_loader, csv_writer, optimizer=None)
              (mode, epoch, batch_idx, loss.item(), accuracy))
              
         csv_writer.writerow({'epoch': epoch, 'batch': batch_idx,
-               'loss': loss.item(),'accuracy': accuracy})
-     print('end of epoch %d/%d correct' % (total_correct,len(data_loader.dataset)))
+               'loss': loss.item(),'accuracy': accuracy,'batch_size':image.size(0)})
+    print('end of epoch %d/%d correct' % (total_correct,len(data_loader.dataset)))
